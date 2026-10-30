@@ -1,0 +1,56 @@
+diff --git a/crates/protocol/src/codec.rs b/crates/protocol/src/codec.rs
+index bd1a9c4..b77c2ca 100644
+--- a/crates/protocol/src/codec.rs
++++ b/crates/protocol/src/codec.rs
+@@ -11,7 +11,7 @@ use crate::world::WorldPacketError;
+ use crate::{Packet, PacketKind};
+ 
+ const MAX_BATCH_BYTES: usize = 16 * 1024 * 1024;
+-const MAX_BATCH_PACKETS: usize = 1_600;
++const MAX_BATCH_PACKETS: usize = 1_048_576;
+ 
+ /// Errors produced by raw Bedrock batch encoding and decoding.
+ #[derive(Debug, Error)]
+diff --git a/crates/protocol/src/raw_packet.rs b/crates/protocol/src/raw_packet.rs
+index c2523a3..21dec10 100644
+--- a/crates/protocol/src/raw_packet.rs
++++ b/crates/protocol/src/raw_packet.rs
+@@ -13,7 +13,7 @@ use crate::packet_tap::PacketRecordId;
+ use crate::{Packet, SessionError};
+ 
+ /// Most packets one batch may hold.
+-pub(crate) const MAX_RAW_BATCH_PACKETS: usize = 1_600;
++pub(crate) const MAX_RAW_BATCH_PACKETS: usize = 1_048_576;
+ 
+ /// One batch entry, `[length][header][body]`, whose body stays a slice of the received batch.
+ #[derive(Debug, Clone)]
+diff --git a/crates/protocol/src/tests/fixtures.rs b/crates/protocol/src/tests/fixtures.rs
+index c7fb20b..d035b56 100644
+--- a/crates/protocol/src/tests/fixtures.rs
++++ b/crates/protocol/src/tests/fixtures.rs
+@@ -29,7 +29,7 @@ const MOVE_PLAYER: &[u8] = include_bytes!("../../fixtures/move_player.bin");
+ const PLAYER_AUTH_INPUT: &[u8] = include_bytes!("../../fixtures/player_auth_input.bin");
+ const ADD_ACTOR: &[u8] = include_bytes!("../../fixtures/add_actor.bin");
+ const MAX_BATCH_BYTES: usize = 16 * 1024 * 1024;
+-const MAX_BATCH_PACKETS: usize = 1_600;
++const MAX_BATCH_PACKETS: usize = 1_048_576;
+ 
+ /// `TeleportCauseCommand` in gophertunnel `minecraft/protocol/packet/move_player.go`.
+ ///
+@@ -346,14 +346,14 @@ fn decode_rejects_input_over_16_mib() {
+ }
+ 
+ #[test]
+-fn decode_accepts_1600_packets_and_rejects_1601() {
++fn decode_accepts_max_packets_and_rejects_one_more() {
+     let inner = &NETWORK_SETTINGS[1..];
+     let mut at_limit = BytesMut::with_capacity(1 + inner.len() * MAX_BATCH_PACKETS);
+     at_limit.put_u8(0xfe);
+     for _ in 0..MAX_BATCH_PACKETS {
+         at_limit.extend_from_slice(inner);
+     }
+-    let packets = decode_batch(at_limit.freeze()).expect("1,600 packets");
++    let packets = decode_batch(at_limit.freeze()).expect("max packets");
+     assert_eq!(packets.len(), MAX_BATCH_PACKETS);
+ 
+     let mut over_limit = BytesMut::with_capacity(1 + inner.len() * (MAX_BATCH_PACKETS + 1));

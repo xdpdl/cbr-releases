@@ -1,0 +1,65 @@
+name: Build Cinnabar (patched) for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout this repo (patch)
+        uses: actions/checkout@v4
+        with:
+          path: patches
+
+      - name: Checkout Cinnabar v0.1.31
+        uses: actions/checkout@v4
+        with:
+          repository: cinnabar-mc/cinnabar
+          ref: v0.1.31
+          path: src
+          submodules: recursive
+
+      - name: Apply patch
+        working-directory: src
+        run: git apply ../patches/cinnabar-batch-limit.patch
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: src/core/go.mod
+
+      - name: Set up Rust (uses rust-toolchain.toml)
+        working-directory: src
+        run: rustup show
+
+      - name: Build client + core (same as official packaging)
+        working-directory: src
+        run: make package-binaries DIST_PLATFORM=windows
+
+      - name: Package
+        working-directory: src
+        run: |
+          mkdir -p ../dist
+          cp target/release/*.exe ../dist/
+          cp LICENSE THIRD_PARTY_NOTICES.md ../dist/
+          cd ../dist && 7z a ../cinnabar-patched-windows.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinnabar-patched-windows
+          path: cinnabar-patched-windows.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: cinnabar-patched-windows.zip

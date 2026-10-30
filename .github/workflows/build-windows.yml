@@ -57,13 +57,22 @@ jobs:
         working-directory: src
         env:
           CARGO_INCREMENTAL: "0"
-        run: make package-binaries DIST_PLATFORM=windows PACKAGE_CARGO_FLAGS="-j 2"
+          CARGO_TARGET_DIR: C:/t
+        run: |
+          git config --global core.longpaths true
+          mkdir -p C:/t/release
+          make package-binaries DIST_PLATFORM=windows PACKAGE_CARGO_FLAGS="-j 2" DIST_CORE=C:/t/release/bedrock-core.exe LOCAL_SERVER_OUT=C:/t/release/bedrock-local-server.exe
+
+      - name: Disk usage on failure
+        if: failure()
+        shell: pwsh
+        run: Get-PSDrive C,D | Format-Table Name,Used,Free
 
       - name: Package
         working-directory: src
         run: |
           mkdir -p ../dist
-          cp target/release/*.exe ../dist/
+          cp C:/t/release/*.exe ../dist/
           cp LICENSE THIRD_PARTY_NOTICES.md ../dist/
           cd ../dist && 7z a ../cinnabar-patched-windows.zip .
 

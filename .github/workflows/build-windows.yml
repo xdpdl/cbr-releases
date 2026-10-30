@@ -32,18 +32,32 @@ jobs:
         working-directory: src
         run: git apply ../patches/cinnabar-batch-limit.patch
 
+      - name: Free disk space
+        shell: pwsh
+        run: |
+          Get-PSDrive C | Select-Object Used,Free
+          Remove-Item -Recurse -Force "C:\Android","C:\hostedtoolcache\windows\CodeQL" -ErrorAction SilentlyContinue
+          Get-PSDrive C | Select-Object Used,Free
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: src/core/go.mod
+          go-version: 'stable'
+          cache: false
 
-      - name: Set up Rust (uses rust-toolchain.toml)
+      - name: Install the pinned Rust toolchain
         working-directory: src
-        run: rustup show
+        run: rustup toolchain install && rustc -V
+
+      - name: Install make if missing
+        shell: pwsh
+        run: if (-not (Get-Command make -ErrorAction SilentlyContinue)) { choco install make --no-progress -y }
 
       - name: Build client + core (same as official packaging)
         working-directory: src
-        run: make package-binaries DIST_PLATFORM=windows
+        env:
+          CARGO_INCREMENTAL: "0"
+        run: make package-binaries DIST_PLATFORM=windows PACKAGE_CARGO_FLAGS="-j 2"
 
       - name: Package
         working-directory: src
